@@ -1,151 +1,55 @@
 import streamlit as st
-import pandas as pd
-import math
-from pathlib import Path
-
-# Set the title and favicon that appear in the Browser's tab bar.
-st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
-)
-
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
-
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
-
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
-
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
-
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
-
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
-
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
-
-    return gdp_df
-
-gdp_df = get_gdp_data()
-
-# -----------------------------------------------------------------------------
-# Draw the actual page
-
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
-
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
-
-# Add some spacing
-''
-''
-
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
-
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
-
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
-
-''
-''
+import google.generativeai as genai
 
 
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
+# Configure your API key
+genai.configure(api_key="AIzaSyC86IqnS0vAzkijFfnDW2yOEtpWNiea1Vc")
 
-st.header(f'GDP in {to_year}', divider='gray')
+# Define the system prompt to guide the chatbot
+SYSTEM_PROMPT = """
+You are a knowledgeable and helpful assistant for a sophisticated gym website. Your task is to answer all questions related to gym topics with direct and clear answers. Your responses should always be:
+1. Direct and complete, addressing the user’s query.
+2. Friendly and professional, with a focus on gym-related topics.
 
-''
+For common gym queries like class schedules, gym timings, memberships, and equipment, provide **direct answers**. 
 
-cols = st.columns(4)
+If the user asks an ambiguous or non-gym-related question, gently let them know that you can only answer gym-related questions. 
 
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
+Example topics you can cover:
+- **Gym Schedule & Timings:** Answer questions like "What time does the gym open?" or "When are you closed on holidays?"
+- **Classes:** Availability, types of classes (e.g., Hatha Yoga, Vinyasa Flow), schedules, and booking.
+- **Trainers:** Availability of trainers and booking personal training sessions.
+- **Payments & Billing:** Answer questions about gym memberships, payment methods, and billing cycles.
+- **Gym Equipment & Facilities:** Information about the gym’s equipment and other amenities (sauna, pool, etc.).
 
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
+If the question is not related to the gym or you don’t have enough information, say: "I’m sorry, I can only answer gym-related questions."
 
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
+Do not ask for additional information unless it's absolutely necessary to clarify a query.
+"""
 
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+# Initialize the model using Gemini
+model = genai.GenerativeModel("gemini-1.5-flash")
+
+# Function to get a response from the chatbot
+def get_gym_chatbot_response(user_query):
+    prompt = SYSTEM_PROMPT + f"\nUser Query: {user_query}\nResponse:"
+    response = model.generate_content(prompt)
+    return response.text
+
+# Streamlit UI
+def chatbot():
+    st.title("Gym Chatbot")
+    st.write("Welcome to the Gym Chatbot! Ask me any gym-related questions.")
+    
+    user_input = st.text_input("You: ", "")
+    
+    if user_input:
+        bot_response = get_gym_chatbot_response(user_input)
+        st.write(f"Bot: {bot_response}")
+    
+    if st.button('Exit'):
+        st.write("Goodbye! Have a great day at the gym!")
+        
+# Run the app
+if __name__ == '__main__':
+    chatbot()
