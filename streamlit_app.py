@@ -1,12 +1,11 @@
 import streamlit as st
 import google.generativeai as genai
 
-
 # Configure the Gemini API key
 genai.configure(api_key="AIzaSyC86IqnS0vAzkijFfnDW2yOEtpWNiea1Vc")
 
-# Initialize the model using Gemini
-model = genai.GenerativeModel("gemini-1.5-flash")
+# Initialize the model (correct method based on available documentation)
+model = genai.GenerativeModel.from_pretrained("gemini-1.5-flash")
 
 # Define System Prompt
 SYSTEM_PROMPT = """
