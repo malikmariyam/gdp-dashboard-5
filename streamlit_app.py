@@ -4,9 +4,6 @@ import google.generativeai as genai
 # Configure the Gemini API key
 genai.configure(api_key="AIzaSyC86IqnS0vAzkijFfnDW2yOEtpWNiea1Vc")
 
-# Initialize the model (correct method based on available documentation)
-model = genai.GenerativeModel.from_pretrained("gemini-1.5-flash")
-
 # Define System Prompt
 SYSTEM_PROMPT = """
 You are a highly knowledgeable and friendly fitness assistant for an advanced gym website. Your task is to answer all gym-related queries with accurate, professional, and practical advice. Your responses should always be:
@@ -33,7 +30,8 @@ If a user asks something unrelated to the gym, politely let them know you only a
 # Function to get chatbot response
 def get_gym_chatbot_response(user_query):
     prompt = SYSTEM_PROMPT + f"\nUser Query: {user_query}\nResponse:"
-    response = model.generate_content(prompt)
+    # Use generate_text instead of directly calling model
+    response = genai.generate_text(prompt=prompt)
     return response.text.strip()
 
 # Streamlit UI
