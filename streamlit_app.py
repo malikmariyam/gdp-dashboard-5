@@ -2,54 +2,106 @@ import streamlit as st
 import google.generativeai as genai
 
 
-# Configure your API key
+# Configure the Gemini API key
 genai.configure(api_key="AIzaSyC86IqnS0vAzkijFfnDW2yOEtpWNiea1Vc")
-
-# Define the system prompt to guide the chatbot
-SYSTEM_PROMPT = """
-You are a knowledgeable and helpful assistant for a sophisticated gym website. Your task is to answer all questions related to gym topics with direct and clear answers. Your responses should always be:
-1. Direct and complete, addressing the user’s query.
-2. Friendly and professional, with a focus on gym-related topics.
-
-For common gym queries like class schedules, gym timings, memberships, and equipment, provide **direct answers**. 
-
-If the user asks an ambiguous or non-gym-related question, gently let them know that you can only answer gym-related questions. 
-
-Example topics you can cover:
-- **Gym Schedule & Timings:** Answer questions like "What time does the gym open?" or "When are you closed on holidays?"
-- **Classes:** Availability, types of classes (e.g., Hatha Yoga, Vinyasa Flow), schedules, and booking.
-- **Trainers:** Availability of trainers and booking personal training sessions.
-- **Payments & Billing:** Answer questions about gym memberships, payment methods, and billing cycles.
-- **Gym Equipment & Facilities:** Information about the gym’s equipment and other amenities (sauna, pool, etc.).
-
-If the question is not related to the gym or you don’t have enough information, say: "I’m sorry, I can only answer gym-related questions."
-
-Do not ask for additional information unless it's absolutely necessary to clarify a query.
-"""
 
 # Initialize the model using Gemini
 model = genai.GenerativeModel("gemini-1.5-flash")
 
-# Function to get a response from the chatbot
+# Define System Prompt
+SYSTEM_PROMPT = """
+You are a highly knowledgeable and friendly fitness assistant for an advanced gym website. Your task is to answer all gym-related queries with accurate, professional, and practical advice. Your responses should always be:
+
+1. **Comprehensive and Direct** – Provide complete answers addressing the user's query.
+2. **Friendly and Motivational** – Encourage users with positive and engaging language.
+3. **Expert-Backed** – Base your responses on fitness science, proper training techniques, and nutritional guidelines.
+
+You can handle any gym-related topic, including but not limited to:
+
+- **Workout Plans:** Strength training, weight loss, muscle gain, and flexibility.
+- **Diet & Nutrition:** Meal plans for different fitness goals.
+- **Fat Loss & Muscle Gain:** Step-by-step guidance for users.
+- **Personalized Recommendations:** Routines based on fitness level and goals.
+- **Class & Trainer Information:** Gym schedules, personal trainers, and bookings.
+- **Gym Equipment & Usage:** Proper use of machines and free weights.
+- **Supplements & Recovery:** Protein intake, hydration, and injury prevention.
+- **Membership & Services:** Gym memberships, pricing, and facilities.
+- **Motivation & Consistency:** Tips to stay committed to fitness.
+
+If a user asks something unrelated to the gym, politely let them know you only answer gym-related queries.
+"""
+
+# Function to get chatbot response
 def get_gym_chatbot_response(user_query):
     prompt = SYSTEM_PROMPT + f"\nUser Query: {user_query}\nResponse:"
     response = model.generate_content(prompt)
-    return response.text
+    return response.text.strip()
 
 # Streamlit UI
-def chatbot():
-    st.title("Gym Chatbot")
-    st.write("Welcome to the Gym Chatbot! Ask me any gym-related questions.")
-    
-    user_input = st.text_input("You: ", "")
-    
-    if user_input:
-        bot_response = get_gym_chatbot_response(user_input)
-        st.write(f"Bot: {bot_response}")
-    
-    if st.button('Exit'):
-        st.write("Goodbye! Have a great day at the gym!")
-        
-# Run the app
-if __name__ == '__main__':
-    chatbot()
+st.set_page_config(page_title="Gym Chatbot", page_icon="🏋️‍♂️", layout="centered")
+
+st.markdown(
+    """
+    <style>
+        .chat-container {
+            max-width: 650px;
+            margin: auto;
+            padding: 20px;
+            border-radius: 10px;
+            background-color: #f9f9f9;
+            box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
+        }
+        .chat-bubble {
+            padding: 12px;
+            margin: 10px;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+        .user-bubble {
+            background-color: #4CAF50;
+            color: white;
+            align-self: flex-end;
+        }
+        .bot-bubble {
+            background-color: #e3e3e3;
+            color: black;
+            align-self: flex-start;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown("<h1 style='text-align: center;'>💪 Gym Chatbot</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center;'>Ask me anything about fitness, workouts, diet plans, and more!</p>", unsafe_allow_html=True)
+
+# Session state to store chat history
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# Display chat history
+for msg in st.session_state.messages:
+    if msg["role"] == "user":
+        st.markdown(f"<div class='chat-bubble user-bubble'>{msg['content']}</div>", unsafe_allow_html=True)
+    else:
+        st.markdown(f"<div class='chat-bubble bot-bubble'>{msg['content']}</div>", unsafe_allow_html=True)
+
+# Input field
+user_input = st.text_input("Type your message...", key="user_input")
+
+if user_input:
+    # Display user message
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    st.markdown(f"<div class='chat-bubble user-bubble'>{user_input}</div>", unsafe_allow_html=True)
+
+    # Get bot response
+    bot_response = get_gym_chatbot_response(user_input)
+
+    # Display bot response
+    st.session_state.messages.append({"role": "bot", "content": bot_response})
+    st.markdown(f"<div class='chat-bubble bot-bubble'>{bot_response}</div>", unsafe_allow_html=True)
+
+# Add a clear chat button
+if st.button("Clear Chat"):
+    st.session_state.messages = []
+    st.rerun()
